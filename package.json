@@ -16,10 +16,10 @@
     "amazon",
     "aws"
   ],
-  "author": "tehkaiyu",
+  "author": "badunk",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/tehkaiyu/multer-s3/issues"
+    "url": "https://github.com/badunk/multer-s3/issues"
   },
   "homepage": "https://github.com/tehkaiyu/multer-s3#readme",
   "dependencies": {
