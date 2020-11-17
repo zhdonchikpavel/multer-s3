@@ -1,4 +1,6 @@
-# Multer S3
+# Multer S3 Transform
+
+> This is a fork of [Multer S3](https://github.com/badunk/multer-s3), kept up to date, with the added [Transform](https://github.com/tehkaiyu/multer-s3#transforming-files-before-upload) property.
 
 Streaming multer storage engine for AWS S3.
 
@@ -7,7 +9,7 @@ This project is mostly an integration piece for existing code samples from Multe
 ## Installation
 
 ```sh
-npm install --save multer-s3
+npm install --save multer-s3-transform
 ```
 
 ## Usage
@@ -16,7 +18,7 @@ npm install --save multer-s3
 var aws = require('aws-sdk')
 var express = require('express')
 var multer = require('multer')
-var multerS3 = require('multer-s3')
+var multerS3 = require('multer-s3-transform')
 
 var app = express()
 var s3 = new aws.S3({ /* ... */ })
