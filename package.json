@@ -36,5 +36,6 @@
     "multer": "^1.1.0",
     "on-finished": "^2.3.0",
     "xtend": "^4.0.1"
-  }
+  },
+  "typings": "./index.d.ts"
 }
