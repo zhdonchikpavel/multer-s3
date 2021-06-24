@@ -222,7 +222,7 @@ var upload = multer({
         cb(null, 'image-original.jpg')
       },
       transform: function (req, file, cb) {
-        cb(null, sharp().jpg())
+        cb(null, sharp().jpeg())
       }
     }, {
       id: 'thumbnail',
@@ -230,7 +230,7 @@ var upload = multer({
         cb(null, 'image-thumbnail.jpg')
       },
       transform: function (req, file, cb) {
-        cb(null, sharp().resize(100, 100).jpg())
+        cb(null, sharp().resize(100, 100).jpeg())
       }
     }]
   })
