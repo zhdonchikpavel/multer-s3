@@ -23,11 +23,13 @@
   },
   "homepage": "https://github.com/tehkaiyu/multer-s3#readme",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.279.0",
     "@aws-sdk/lib-storage": "^3.279.0",
     "file-type": "^3.3.0",
     "is-svg": "^2.1.0",
     "run-parallel": "^1.1.6"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-s3": "^3.279.0"
   },
   "devDependencies": {
     "aws-sdk-client-mock": "^2.0.1",
