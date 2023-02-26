@@ -17,6 +17,7 @@
     "aws"
   ],
   "author": "badunk",
+  "contributors": ["bidossessi"],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/badunk/multer-s3/issues"
