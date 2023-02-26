@@ -3,6 +3,9 @@ var stream = require("stream");
 var fileType = require("file-type");
 var isSvg = require("is-svg");
 var parallel = require("run-parallel");
+var Upload = require('@aws-sdk/lib-storage').Upload;
+var DeleteObjectCommand = require('@aws-sdk/client-s3').DeleteObjectCommand;
+var util = require('util')
 
 function staticValue(value) {
   return function (req, file, cb) {
@@ -18,6 +21,7 @@ var defaultCacheControl = staticValue(null);
 var defaultShouldTransform = staticValue(false);
 var defaultTransforms = [];
 var defaultContentDisposition = staticValue(null);
+var defaultContentEncoding = staticValue(null);
 var defaultStorageClass = staticValue("STANDARD");
 var defaultSSE = staticValue(null);
 var defaultSSEKMS = staticValue(null);
@@ -63,6 +67,7 @@ function collect(storage, req, file, cb) {
       storage.getStorageClass.bind(storage, req, file),
       storage.getSSE.bind(storage, req, file),
       storage.getSSEKMS.bind(storage, req, file),
+      storage.getContentEncoding.bind(storage, req, file)
     ],
     function (err, values) {
       if (err) return cb(err);
@@ -87,6 +92,7 @@ function collect(storage, req, file, cb) {
           replacementStream: replacementStream,
           serverSideEncryption: values[8],
           sseKmsKeyId: values[9],
+          contentEncoding: values[10]
         });
       });
     }
@@ -237,6 +243,7 @@ function S3Storage(opts) {
     }
     return transform;
   });
+
   switch (typeof opts.contentDisposition) {
     case "function":
       this.getContentDisposition = opts.contentDisposition;
@@ -250,6 +257,22 @@ function S3Storage(opts) {
     default:
       throw new TypeError(
         "Expected opts.contentDisposition to be undefined, string or function"
+      );
+  }
+
+  switch (typeof opts.contentEncoding) {
+    case 'function':
+      this.getContentEncoding = opts.contentEncoding;
+      break;
+    case 'string':
+      this.getContentEncoding = staticValue(opts.contentEncoding);
+      break;
+    case 'undefined':
+      this.getContentEncoding = defaultContentEncoding;
+      break;
+    default:
+      throw new TypeError(
+        'Expected opts.contentEncoding to be undefined, string or function'
       );
   }
 
@@ -335,13 +358,20 @@ S3Storage.prototype.directUpload = function (opts, file, cb) {
     params.ContentDisposition = opts.contentDisposition;
   }
 
-  var upload = this.s3.upload(params);
+  if (opts.contentEncoding) {
+    params.ContentEncoding = opts.contentEncoding
+  }
+
+  var upload = new Upload({
+    client: this.s3,
+    params: params
+  })
 
   upload.on("httpUploadProgress", function (ev) {
     if (ev.total) currentSize = ev.total;
   });
 
-  upload.send(function (err, result) {
+  util.callbackify(upload.done.bind(upload))(function (err, result) {
     if (err) return cb(err);
 
     cb(null, {
@@ -376,7 +406,7 @@ S3Storage.prototype.transformUpload = function (opts, req, file, cb) {
         storage.getTransforms[i].transform(req, file, function (err, piper) {
           if (err) return cb(err);
 
-          var upload = storage.s3.upload({
+          var params = {
             Bucket: opts.bucket,
             Key: key,
             ACL: opts.acl,
@@ -387,13 +417,22 @@ S3Storage.prototype.transformUpload = function (opts, req, file, cb) {
             ServerSideEncryption: opts.serverSideEncryption,
             SSEKMSKeyId: opts.sseKmsKeyId,
             Body: (opts.replacementStream || file.stream).pipe(piper),
-          });
+          };
+        
+          if (opts.contentEncoding) {
+            params.ContentEncoding = opts.contentEncoding
+          }
+        
+          var upload = new Upload({
+            client: storage.s3,
+            params: params
+          })
 
           upload.on("httpUploadProgress", function (ev) {
             if (ev.total) currentSize = ev.total;
           });
 
-          upload.send(function (err, result) {
+          util.callbackify(upload.done.bind(upload))(function (err, result) {
             if (err) return cb(err);
 
             results.push({
@@ -422,7 +461,13 @@ S3Storage.prototype.transformUpload = function (opts, req, file, cb) {
 };
 
 S3Storage.prototype._removeFile = function (req, file, cb) {
-  this.s3.deleteObject({ Bucket: file.bucket, Key: file.key }, cb);
+  this.s3.send(
+    new DeleteObjectCommand({
+      Bucket: file.bucket,
+      Key: file.key
+    }),
+    cb
+  );
 };
 
 module.exports = function (opts) {

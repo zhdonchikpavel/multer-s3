@@ -10,7 +10,9 @@ var multer = require("multer");
 var stream = require("stream");
 var FormData = require("form-data");
 var onFinished = require("on-finished");
-var mockS3 = require("./util/mock-s3");
+
+var mockClient = require("aws-sdk-client-mock").mockClient;
+var S3Client = require("@aws-sdk/client-s3").S3Client;
 
 var VALID_OPTIONS = {
   bucket: "string",
@@ -49,6 +51,14 @@ function submitForm(multer, form, cb) {
 }
 
 describe("Multer S3", function () {
+  let mockS3;
+  let client;
+
+  beforeEach(function () {
+    mockS3 = mockClient(S3Client);
+    client = new S3Client({});
+  });
+
   it("is exposed as a function", function () {
     assert.equal(typeof multerS3, "function");
   });
@@ -64,15 +74,13 @@ describe("Multer S3", function () {
   });
 
   it("upload files", function (done) {
-    var s3 = mockS3();
     var form = new FormData();
-    var storage = multerS3({ s3: s3, bucket: "test" });
+    var storage = multerS3({ s3: client, bucket: "test" });
     var upload = multer({ storage: storage });
     var parser = upload.single("image");
     var image = fs.createReadStream(
       path.join(__dirname, "files", "ffffff.png")
     );
-
     form.append("name", "Multer");
     form.append("image", image);
 
@@ -85,18 +93,18 @@ describe("Multer S3", function () {
       assert.equal(req.file.originalname, "ffffff.png");
       assert.equal(req.file.size, 68);
       assert.equal(req.file.bucket, "test");
-      assert.equal(req.file.etag, "mock-etag");
-      assert.equal(req.file.location, "mock-location");
+      assert.ok(req.file.location.startsWith('https://test.s3'));
+      assert.ok(req.file.location.endsWith(req.file.key));
+      assert.true
 
       done();
     });
   });
 
   it("uploads file with AES256 server-side encryption", function (done) {
-    var s3 = mockS3();
     var form = new FormData();
     var storage = multerS3({
-      s3: s3,
+      s3: client,
       bucket: "test",
       serverSideEncryption: "AES256",
     });
@@ -118,8 +126,8 @@ describe("Multer S3", function () {
       assert.equal(req.file.originalname, "ffffff.png");
       assert.equal(req.file.size, 68);
       assert.equal(req.file.bucket, "test");
-      assert.equal(req.file.etag, "mock-etag");
-      assert.equal(req.file.location, "mock-location");
+      assert.ok(req.file.location.startsWith('https://test.s3'));
+      assert.ok(req.file.location.endsWith(req.file.key));
       assert.equal(req.file.serverSideEncryption, "AES256");
 
       done();
@@ -127,10 +135,10 @@ describe("Multer S3", function () {
   });
 
   it("uploads file with AWS KMS-managed server-side encryption", function (done) {
-    var s3 = mockS3();
+    
     var form = new FormData();
     var storage = multerS3({
-      s3: s3,
+      s3: client,
       bucket: "test",
       serverSideEncryption: "aws:kms",
     });
@@ -152,8 +160,8 @@ describe("Multer S3", function () {
       assert.equal(req.file.originalname, "ffffff.png");
       assert.equal(req.file.size, 68);
       assert.equal(req.file.bucket, "test");
-      assert.equal(req.file.etag, "mock-etag");
-      assert.equal(req.file.location, "mock-location");
+      assert.ok(req.file.location.startsWith('https://test.s3'));
+      assert.ok(req.file.location.endsWith(req.file.key));
       assert.equal(req.file.serverSideEncryption, "aws:kms");
 
       done();
@@ -161,10 +169,9 @@ describe("Multer S3", function () {
   });
 
   it("uploads PNG file with correct content-type", function (done) {
-    var s3 = mockS3();
     var form = new FormData();
     var storage = multerS3({
-      s3: s3,
+      s3: client,
       bucket: "test",
       serverSideEncryption: "aws:kms",
       contentType: multerS3.AUTO_CONTENT_TYPE,
@@ -188,8 +195,8 @@ describe("Multer S3", function () {
       assert.equal(req.file.originalname, "ffffff.png");
       assert.equal(req.file.size, 68);
       assert.equal(req.file.bucket, "test");
-      assert.equal(req.file.etag, "mock-etag");
-      assert.equal(req.file.location, "mock-location");
+      assert.ok(req.file.location.startsWith('https://test.s3'));
+      assert.ok(req.file.location.endsWith(req.file.key));
       assert.equal(req.file.serverSideEncryption, "aws:kms");
 
       done();
@@ -197,10 +204,9 @@ describe("Multer S3", function () {
   });
 
   it("uploads SVG file with correct content-type", function (done) {
-    var s3 = mockS3();
     var form = new FormData();
     var storage = multerS3({
-      s3: s3,
+      s3: client,
       bucket: "test",
       serverSideEncryption: "aws:kms",
       contentType: multerS3.AUTO_CONTENT_TYPE,
@@ -222,8 +228,8 @@ describe("Multer S3", function () {
       assert.equal(req.file.originalname, "test.svg");
       assert.equal(req.file.size, 100);
       assert.equal(req.file.bucket, "test");
-      assert.equal(req.file.etag, "mock-etag");
-      assert.equal(req.file.location, "mock-location");
+      assert.ok(req.file.location.startsWith('https://test.s3'));
+      assert.ok(req.file.location.endsWith(req.file.key));
       assert.equal(req.file.serverSideEncryption, "aws:kms");
 
       done();
@@ -231,10 +237,9 @@ describe("Multer S3", function () {
   });
 
   it("upload transformed files", function (done) {
-    var s3 = mockS3();
     var form = new FormData();
     var storage = multerS3({
-      s3: s3,
+      s3: client,
       bucket: "test",
       shouldTransform: true,
       transforms: [
@@ -270,9 +275,10 @@ describe("Multer S3", function () {
       assert.equal(req.file.transforms[0].size, 68);
       assert.equal(req.file.transforms[0].bucket, "test");
       assert.equal(req.file.transforms[0].key, "test");
-      assert.equal(req.file.transforms[0].etag, "mock-etag");
-      assert.equal(req.file.transforms[0].location, "mock-location");
+      assert.ok(req.file.transforms[0].location.startsWith('https://test.s3'));
+      assert.ok(req.file.transforms[0].location.endsWith(req.file.transforms[0].key));
       assert.equal(req.file.transforms[1].key, "test2");
+      assert.ok(req.file.transforms[1].location.endsWith(req.file.transforms[1].key));
 
       done();
     });

@@ -1,8 +1,8 @@
-import * as AWS from "aws-sdk";
+import { S3Client } from "@aws-sdk/client-s3";
 import multer from "multer";
 
 export interface Options {
-  s3: AWS.S3;
+  s3: S3Client;
   bucket: ((req: Express.Request, file: Express.Multer.File, callback: (error: any, bucket?: string) => void) => void) | string;
   key?(req: Express.Request, file: Express.Multer.File, callback: (error: any, key?: string) => void): void;
   acl?: ((req: Express.Request, file: Express.Multer.File, callback: (error: any, acl?: string) => void) => void) | string;
